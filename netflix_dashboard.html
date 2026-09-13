@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Netflix Annual Subscription Revenue Model</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#0b0b0c;
+    --panel:#161618;
+    --panel-line:#2a2a2d;
+    --red:#e50914;
+    --text:#f2f2f2;
+    --muted:#9a9a9d;
+    --ucan:#e50914;
+    --emea:#ff8a3d;
+    --latam:#3ddc97;
+    --apac:#4da3ff;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Helvetica Neue', Arial, sans-serif;
+    line-height:1.5;
+  }
+  header{
+    padding:48px 6vw 28px;
+    border-bottom:1px solid var(--panel-line);
+  }
+  header .kicker{
+    color:var(--red);
+    font-weight:700;
+    font-size:0.85rem;
+    letter-spacing:0.02em;
+  }
+  header h1{
+    font-size:clamp(1.8rem, 3.4vw, 3rem);
+    margin:6px 0 10px;
+    font-weight:800;
+    max-width:14ch;
+  }
+  header p{
+    color:var(--muted);
+    max-width:60ch;
+    font-size:0.98rem;
+  }
+  .wrap{ padding:32px 6vw 80px; }
+  .kpis{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(190px,1fr));
+    gap:16px;
+    margin-bottom:36px;
+  }
+  .kpi{
+    background:var(--panel);
+    border:1px solid var(--panel-line);
+    border-radius:10px;
+    padding:20px;
+  }
+  .kpi .label{ color:var(--muted); font-size:0.82rem; margin-bottom:8px; }
+  .kpi .value{ font-size:1.9rem; font-weight:800; }
+  .kpi .sub{ color:var(--muted); font-size:0.8rem; margin-top:4px; }
+
+  .grid{
+    display:grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap:20px;
+    margin-bottom:20px;
+  }
+  .grid.two{ grid-template-columns: 1fr 1fr; }
+  @media (max-width:880px){
+    .grid, .grid.two{ grid-template-columns: 1fr; }
+  }
+  .card{
+    background:var(--panel);
+    border:1px solid var(--panel-line);
+    border-radius:10px;
+    padding:22px;
+  }
+  .card h2{
+    font-size:1rem;
+    margin:0 0 4px;
+  }
+  .card .desc{
+    color:var(--muted);
+    font-size:0.82rem;
+    margin-bottom:16px;
+  }
+  .chart-box{ position:relative; height:320px; }
+  .chart-box.short{ height:260px; }
+
+  .legend-row{
+    display:flex;
+    gap:18px;
+    flex-wrap:wrap;
+    margin-top:10px;
+    font-size:0.78rem;
+    color:var(--muted);
+  }
+  .legend-row span.dot{
+    display:inline-block; width:9px; height:9px; border-radius:50%;
+    margin-right:6px; vertical-align:middle;
+  }
+
+  table{ width:100%; border-collapse:collapse; font-size:0.85rem; }
+  th, td{ text-align:right; padding:9px 8px; border-bottom:1px solid var(--panel-line); }
+  th:first-child, td:first-child{ text-align:left; }
+  th{ color:var(--muted); font-weight:600; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.03em;}
+  tr:last-child td{ border-bottom:none; }
+  .est{ color:var(--muted); font-size:0.72rem; }
+
+  footer{
+    padding:24px 6vw 48px;
+    color:var(--muted);
+    font-size:0.78rem;
+    border-top:1px solid var(--panel-line);
+    max-width:90ch;
+  }
+  footer a{ color:var(--emea); }
+
+  .filters{
+    display:flex;
+    flex-wrap:wrap;
+    gap:20px;
+    align-items:center;
+    margin-bottom:18px;
+    padding-bottom:16px;
+    border-bottom:1px solid var(--panel-line);
+  }
+  .filter-group{ display:flex; flex-direction:column; gap:8px; position:relative; }
+  .filter-group .fg-label{ color:var(--muted); font-size:0.72rem; text-transform:uppercase; letter-spacing:0.03em; }
+
+  .dropdown{ position:relative; }
+  .dropdown-btn{
+    display:flex; align-items:center; gap:8px;
+    background:var(--bg); color:var(--text);
+    border:1px solid var(--panel-line);
+    border-radius:8px;
+    padding:8px 14px;
+    font-size:0.85rem;
+    cursor:pointer;
+    min-width:160px;
+    justify-content:space-between;
+  }
+  .dropdown-btn:hover{ border-color:var(--muted); }
+  .dropdown-btn .caret{ color:var(--muted); font-size:0.7rem; transition:transform .15s ease; }
+  .dropdown-btn.open .caret{ transform:rotate(180deg); }
+  .dropdown-panel{
+    display:none;
+    position:absolute; top:calc(100% + 6px); left:0; z-index:20;
+    background:#1c1c1f;
+    border:1px solid var(--panel-line);
+    border-radius:8px;
+    padding:8px;
+    min-width:200px;
+    box-shadow:0 10px 30px rgba(0,0,0,.4);
+  }
+  .dropdown-panel.open{ display:block; }
+  .dropdown-actions{
+    display:flex; gap:8px;
+    padding:2px 6px 8px;
+    margin-bottom:6px;
+    border-bottom:1px solid var(--panel-line);
+  }
+  .dropdown-actions button{
+    background:none; border:none; color:var(--emea);
+    font-size:0.72rem; cursor:pointer; padding:0;
+  }
+  .dropdown-actions button:hover{ text-decoration:underline; }
+  .dropdown-item{
+    display:flex; align-items:center; gap:9px;
+    padding:6px 6px;
+    border-radius:6px;
+    cursor:pointer;
+    font-size:0.85rem;
+  }
+  .dropdown-item:hover{ background:rgba(255,255,255,0.05); }
+  .dropdown-item input[type="checkbox"]{
+    accent-color:var(--dd-color, var(--red));
+    width:15px; height:15px; cursor:pointer;
+  }
+  .row-count{ color:var(--muted); font-size:0.78rem; margin-left:auto; }
+
+  .insights{
+    background:linear-gradient(180deg, var(--panel) 0%, #1a1414 100%);
+    border:1px solid var(--panel-line);
+    border-left:3px solid var(--red);
+  }
+  .insights h2{ font-size:1.15rem; }
+  .takeaway{
+    display:grid;
+    grid-template-columns: 34px 1fr;
+    gap:14px;
+    padding:14px 0;
+    border-bottom:1px solid var(--panel-line);
+  }
+  .takeaway:last-child{ border-bottom:none; }
+  .takeaway .rank{
+    font-size:1.3rem;
+    font-weight:800;
+    color:var(--red);
+    line-height:1.2;
+  }
+  .takeaway h3{ margin:0 0 4px; font-size:0.95rem; }
+  .takeaway p{ margin:0; color:var(--muted); font-size:0.86rem; }
+  .takeaway p strong{ color:var(--text); font-weight:600; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="kicker">CASE STUDY — STREAMING ECONOMICS</div>
+  <h1>Netflix's four regions don't make money the same way</h1>
+  <p>An annual subscription revenue model built from Netflix's own SEC filings (2020–2025),
+  tracking regional revenue, subscriber growth, and average revenue per membership (ARM)
+  across the four markets Netflix reports on: the <strong>United States &amp; Canada (UCAN)</strong>,
+  <strong>Europe, Middle East &amp; Africa (EMEA)</strong>, <strong>Latin America (LATAM)</strong>,
+  and <strong>Asia-Pacific (APAC)</strong> — four regions, four very different pricing stories.</p>
+</header>
+
+<div class="wrap">
+
+  <div class="kpis" id="kpiRow"></div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Global revenue, 2020–2025</h2>
+      <div class="desc">Total streaming revenue, stacked by region ($ billions)</div>
+      <div class="chart-box"><canvas id="stackedRevenue"></canvas></div>
+    </div>
+    <div class="card">
+      <h2>2025 revenue mix</h2>
+      <div class="desc">Share of total revenue by region</div>
+      <div class="chart-box"><canvas id="mixDonut"></canvas></div>
+      <div class="legend-row" id="donutLegend"></div>
+    </div>
+  </div>
+
+  <div class="grid two">
+    <div class="card">
+      <h2>Average Revenue per Membership</h2>
+      <div class="desc">Monthly ARM by region, USD — the real driver of the revenue gap</div>
+      <div class="chart-box short"><canvas id="armLines"></canvas></div>
+    </div>
+    <div class="card">
+      <h2>Subscriber growth vs. revenue growth</h2>
+      <div class="desc">Global YoY change — subscribers grow steadily, revenue grows faster</div>
+      <div class="chart-box short"><canvas id="growthBars"></canvas></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:20px;">
+    <h2>Revenue growth by region, YoY</h2>
+    <div class="desc">Where the growth is actually coming from — same-region change, year over year</div>
+    <div class="chart-box"><canvas id="regionGrowth"></canvas></div>
+  </div>
+
+  <div class="card" id="dataCard">
+    <h2>Full dataset</h2>
+    <div class="desc">All figures sourced from Netflix Form 10-K / Annual Report to Shareholders unless marked estimated</div>
+
+    <div class="filters">
+      <div class="filter-group">
+        <span class="fg-label">Region</span>
+        <div class="dropdown" id="regionDropdown">
+          <button class="dropdown-btn" id="regionDropdownBtn" type="button">
+            <span id="regionDropdownLabel">All regions</span><span class="caret">▾</span>
+          </button>
+          <div class="dropdown-panel" id="regionDropdownPanel"></div>
+        </div>
+      </div>
+      <div class="filter-group">
+        <span class="fg-label">Year</span>
+        <div class="dropdown" id="yearDropdown">
+          <button class="dropdown-btn" id="yearDropdownBtn" type="button">
+            <span id="yearDropdownLabel">All years</span><span class="caret">▾</span>
+          </button>
+          <div class="dropdown-panel" id="yearDropdownPanel"></div>
+        </div>
+      </div>
+      <div class="row-count" id="rowCount"></div>
+    </div>
+
+    <div style="overflow-x:auto;">
+      <table id="dataTable">
+        <thead>
+          <tr><th>Year</th><th>Region</th><th>Revenue ($M)</th><th>Memberships (M)</th><th>ARM ($/mo)</th><th>Share of year</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card insights" style="margin-top:20px;">
+    <h2>Reading the numbers — what actually happened, 2020–2025</h2>
+    <div id="insightsList"></div>
+  </div>
+
+</div>
+
+<footer>
+  Sources: Netflix, Inc. Form 10-K and Annual Report to Shareholders, FY2020–FY2025, filed with the
+  U.S. SEC (sec.gov/edgar, CIK 0001065280). 2023 UCAN/EMEA memberships and all 2025 regional
+  memberships are analyst estimates derived from Netflix's disclosed regional growth rates, scaled to
+  match confirmed company-wide totals — see <code>Notes_and_Assumptions</code> in the companion
+  workbook for the full derivation. Built for an MBA case-study dashboard project; not affiliated with
+  or endorsed by Netflix, Inc.
+</footer>
+
+<script>
+const REGIONS = ["UCAN","EMEA","LATAM","APAC"];
+const COLORS = { UCAN:"#e50914", EMEA:"#ff8a3d", LATAM:"#3ddc97", APAC:"#4da3ff" };
+
+// Revenue in $ thousands, Memberships in thousands
+const DATA = [
+ {year:2020, region:"UCAN", revenue:11455396, members:73936, est:false},
+ {year:2020, region:"EMEA", revenue:7772252,  members:66698, est:false},
+ {year:2020, region:"LATAM",revenue:3156727,  members:37537, est:false},
+ {year:2020, region:"APAC", revenue:2372300,  members:25492, est:false},
+
+ {year:2021, region:"UCAN", revenue:12972100, members:75215, est:false},
+ {year:2021, region:"EMEA", revenue:9699819,  members:74036, est:false},
+ {year:2021, region:"LATAM",revenue:3576976,  members:39961, est:false},
+ {year:2021, region:"APAC", revenue:3266601,  members:32632, est:false},
+
+ {year:2022, region:"UCAN", revenue:14084643, members:74296, est:false},
+ {year:2022, region:"EMEA", revenue:9745015,  members:76729, est:false},
+ {year:2022, region:"LATAM",revenue:4069973,  members:41699, est:false},
+ {year:2022, region:"APAC", revenue:3570221,  members:38023, est:false},
+
+ {year:2023, region:"UCAN", revenue:14873783, members:80110, est:true},
+ {year:2023, region:"EMEA", revenue:10556487, members:88770, est:true},
+ {year:2023, region:"LATAM",revenue:4446461,  members:45997, est:false},
+ {year:2023, region:"APAC", revenue:3763727,  members:45338, est:false},
+
+ {year:2024, region:"UCAN", revenue:17359369, members:89600, est:false},
+ {year:2024, region:"EMEA", revenue:12387035, members:101300,est:false},
+ {year:2024, region:"LATAM",revenue:4839816,  members:53300, est:false},
+ {year:2024, region:"APAC", revenue:4414746,  members:57300, est:false},
+
+ {year:2025, region:"UCAN", revenue:19957152, members:96600, est:true},
+ {year:2025, region:"EMEA", revenue:14514646, members:109200,est:true},
+ {year:2025, region:"LATAM",revenue:5357521,  members:57400, est:true},
+ {year:2025, region:"APAC", revenue:5353717,  members:61800, est:true},
+];
+
+const YEARS = [...new Set(DATA.map(d=>d.year))];
+
+function totalFor(year){ return DATA.filter(d=>d.year===year).reduce((s,d)=>s+d.revenue,0); }
+function membersFor(year){ return DATA.filter(d=>d.year===year).reduce((s,d)=>s+d.members,0); }
+function seriesFor(region, key){ return YEARS.map(y => DATA.find(d=>d.year===y && d.region===region)[key]); }
+
+// ---- KPI row ----
+const first = totalFor(YEARS[0]), last = totalFor(YEARS[YEARS.length-1]);
+const cagr = (Math.pow(last/first, 1/(YEARS.length-1)) - 1) * 100;
+const kpis = [
+  { label:"FY2025 total revenue", value:"$"+(last/1e6).toFixed(1)+"B", sub:"vs $"+(first/1e6).toFixed(1)+"B in FY2020" },
+  { label:"2020–25 revenue CAGR", value: cagr.toFixed(1)+"%", sub:"across all four regions" },
+  { label:"FY2025 paid members", value:(membersFor(2025)/1000).toFixed(0)+"M", sub:"global, all regions" },
+  { label:"UCAN → APAC ARM gap", value:"2.4×", sub:"same content, very different pricing power" },
+];
+document.getElementById('kpiRow').innerHTML = kpis.map(k=>`
+  <div class="kpi">
+    <div class="label">${k.label}</div>
+    <div class="value">${k.value}</div>
+    <div class="sub">${k.sub}</div>
+  </div>`).join('');
+
+// ---- Stacked revenue bar ----
+new Chart(document.getElementById('stackedRevenue'), {
+  type:'bar',
+  data:{
+    labels:YEARS,
+    datasets:REGIONS.map(r=>({
+      label:r,
+      data:seriesFor(r,'revenue').map(v=>+(v/1e6).toFixed(2)),
+      backgroundColor:COLORS[r],
+      stack:'rev'
+    }))
+  },
+  options:{
+    responsive:true, maintainAspectRatio:false,
+    plugins:{ legend:{ labels:{ color:'#f2f2f2' } } },
+    scales:{
+      x:{ stacked:true, ticks:{color:'#9a9a9d'}, grid:{color:'#2a2a2d'} },
+      y:{ stacked:true, ticks:{color:'#9a9a9d', callback:v=>'$'+v+'B'}, grid:{color:'#2a2a2d'} }
+    }
+  }
+});
+
+// ---- Donut for latest year mix ----
+const latestYear = YEARS[YEARS.length-1];
+const donutVals = REGIONS.map(r => DATA.find(d=>d.year===latestYear && d.region===r).revenue);
+new Chart(document.getElementById('mixDonut'), {
+  type:'doughnut',
+  data:{ labels:REGIONS, datasets:[{ data:donutVals, backgroundColor:REGIONS.map(r=>COLORS[r]), borderWidth:0 }] },
+  options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, cutout:'62%' }
+});
+document.getElementById('donutLegend').innerHTML = REGIONS.map(r=>{
+  const pct = (DATA.find(d=>d.year===latestYear && d.region===r).revenue / totalFor(latestYear) * 100).toFixed(1);
+  return `<span><span class="dot" style="background:${COLORS[r]}"></span>${r} ${pct}%</span>`;
+}).join('');
+
+// ---- ARM lines ----
+new Chart(document.getElementById('armLines'), {
+  type:'line',
+  data:{
+    labels:YEARS,
+    datasets:REGIONS.map(r=>({
+      label:r,
+      data:seriesFor(r,'revenue').map((rev,i)=> +(rev/seriesFor(r,'members')[i]/12).toFixed(2) ),
+      borderColor:COLORS[r], backgroundColor:COLORS[r], tension:0.3, pointRadius:3
+    }))
+  },
+  options:{
+    responsive:true, maintainAspectRatio:false,
+    plugins:{ legend:{ labels:{ color:'#f2f2f2' } } },
+    scales:{
+      x:{ ticks:{color:'#9a9a9d'}, grid:{color:'#2a2a2d'} },
+      y:{ ticks:{color:'#9a9a9d', callback:v=>'$'+v}, grid:{color:'#2a2a2d'} }
+    }
+  }
+});
+
+// ---- Growth bars: global revenue growth vs member growth ----
+const revGrowth = YEARS.slice(1).map((y,i)=> +(( totalFor(y)/totalFor(YEARS[i]) - 1)*100).toFixed(1) );
+const memGrowth = YEARS.slice(1).map((y,i)=> +(( membersFor(y)/membersFor(YEARS[i]) - 1)*100).toFixed(1) );
+new Chart(document.getElementById('growthBars'), {
+  type:'bar',
+  data:{
+    labels:YEARS.slice(1),
+    datasets:[
+      { label:'Revenue growth %', data:revGrowth, backgroundColor:'#e50914' },
+      { label:'Subscriber growth %', data:memGrowth, backgroundColor:'#4da3ff' },
+    ]
+  },
+  options:{
+    responsive:true, maintainAspectRatio:false,
+    plugins:{ legend:{ labels:{ color:'#f2f2f2' } } },
+    scales:{
+      x:{ ticks:{color:'#9a9a9d'}, grid:{color:'#2a2a2d'} },
+      y:{ ticks:{color:'#9a9a9d', callback:v=>v+'%'}, grid:{color:'#2a2a2d'} }
+    }
+  }
+});
+
+// ---- Regional YoY growth chart ----
+new Chart(document.getElementById('regionGrowth'), {
+  type:'line',
+  data:{
+    labels:YEARS.slice(1),
+    datasets:REGIONS.map(r=>{
+      const revs = seriesFor(r,'revenue');
+      const growth = YEARS.slice(1).map((y,i)=> +((revs[i+1]/revs[i]-1)*100).toFixed(1) );
+      return { label:r, data:growth, borderColor:COLORS[r], backgroundColor:COLORS[r], tension:0.3, pointRadius:4, borderWidth:2 };
+    })
+  },
+  options:{
+    responsive:true, maintainAspectRatio:false,
+    plugins:{ legend:{ labels:{ color:'#f2f2f2' } } },
+    scales:{
+      x:{ ticks:{color:'#9a9a9d'}, grid:{color:'#2a2a2d'} },
+      y:{ ticks:{color:'#9a9a9d', callback:v=>v+'%'}, grid:{color:'#2a2a2d'} }
+    }
+  }
+});
+
+// ---- Filterable table with multi-select dropdowns ----
+const state = { regions:new Set(REGIONS), years:new Set(YEARS) };
+
+function buildDropdown({ btnId, panelId, labelId, values, activeSet, colorFn, allLabel, itemLabel }){
+  const btn = document.getElementById(btnId);
+  const panel = document.getElementById(panelId);
+  const label = document.getElementById(labelId);
+
+  function updateLabel(){
+    if(activeSet.size === values.length) label.textContent = allLabel;
+    else if(activeSet.size === 0) label.textContent = 'None selected';
+    else if(activeSet.size <= 2) label.textContent = [...activeSet].join(', ');
+    else label.textContent = `${activeSet.size} ${itemLabel} selected`;
+  }
+
+  function renderPanel(){
+    panel.innerHTML = `
+      <div class="dropdown-actions">
+        <button type="button" data-action="all">Select all</button>
+        <button type="button" data-action="clear">Clear</button>
+      </div>
+      ${values.map(v => `
+        <label class="dropdown-item" style="--dd-color:${colorFn(v)}">
+          <input type="checkbox" value="${v}" ${activeSet.has(v) ? 'checked' : ''}>
+          <span>${v}</span>
+        </label>`).join('')}
+    `;
+    panel.querySelector('[data-action="all"]').addEventListener('click', ()=>{
+      values.forEach(v=>activeSet.add(v));
+      renderPanel(); updateLabel(); renderTable();
+    });
+    panel.querySelector('[data-action="clear"]').addEventListener('click', ()=>{
+      activeSet.clear();
+      renderPanel(); updateLabel(); renderTable();
+    });
+    panel.querySelectorAll('input[type="checkbox"]').forEach(cb=>{
+      cb.addEventListener('change', ()=>{
+        const val = isNaN(cb.value) ? cb.value : +cb.value;
+        if(cb.checked) activeSet.add(val); else activeSet.delete(val);
+        updateLabel(); renderTable();
+      });
+    });
+  }
+
+  btn.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    const isOpen = panel.classList.contains('open');
+    document.querySelectorAll('.dropdown-panel.open').forEach(p=>p.classList.remove('open'));
+    document.querySelectorAll('.dropdown-btn.open').forEach(b=>b.classList.remove('open'));
+    if(!isOpen){ panel.classList.add('open'); btn.classList.add('open'); }
+  });
+
+  renderPanel();
+  updateLabel();
+}
+
+document.addEventListener('click', ()=>{
+  document.querySelectorAll('.dropdown-panel.open').forEach(p=>p.classList.remove('open'));
+  document.querySelectorAll('.dropdown-btn.open').forEach(b=>b.classList.remove('open'));
+});
+
+buildDropdown({
+  btnId:'regionDropdownBtn', panelId:'regionDropdownPanel', labelId:'regionDropdownLabel',
+  values:REGIONS, activeSet:state.regions, colorFn:r=>COLORS[r],
+  allLabel:'All regions', itemLabel:'regions'
+});
+buildDropdown({
+  btnId:'yearDropdownBtn', panelId:'yearDropdownPanel', labelId:'yearDropdownLabel',
+  values:YEARS, activeSet:state.years, colorFn:()=> '#4da3ff',
+  allLabel:'All years', itemLabel:'years'
+});
+
+function renderTable(){
+  const rows = DATA.filter(d => state.regions.has(d.region) && state.years.has(d.year));
+  const tbody = document.querySelector('#dataTable tbody');
+  tbody.innerHTML = rows.map(d=>{
+    const share = (d.revenue/totalFor(d.year)*100).toFixed(1)+'%';
+    const arm = (d.revenue/d.members/12).toFixed(2);
+    return `<tr>
+      <td>${d.year}${d.est ? ' <span class="est">(est.)</span>':''}</td>
+      <td><span class="dot" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${COLORS[d.region]};margin-right:6px;"></span>${d.region}</td>
+      <td>${(d.revenue/1000).toLocaleString(undefined,{maximumFractionDigits:0})}</td>
+      <td>${(d.members/1000).toFixed(1)}</td>
+      <td>$${arm}</td>
+      <td>${share}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('rowCount').textContent = `${rows.length} of ${DATA.length} rows`;
+}
+renderTable();
+
+// ---- Insights (figures computed from the dataset above) ----
+document.getElementById('insightsList').innerHTML = `
+  <div class="takeaway">
+    <div class="rank">01</div>
+    <div><h3>UCAN leads in dollars, but is slowly losing share</h3>
+    <p>United States &amp; Canada is still the biggest region by far — <strong>$19.96B in FY2025</strong>,
+    more than any other region — but its share of total revenue actually <strong>slipped from 46.3% (2020) to 44.2% (2025)</strong>.
+    UCAN grew at an <strong>11.7% CAGR</strong>, the slowest of the four regions, because it's the most saturated market.</p></div>
+  </div>
+  <div class="takeaway">
+    <div class="rank">02</div>
+    <div><h3>APAC is the fastest-growing region by a wide margin</h3>
+    <p>Asia-Pacific revenue more than <strong>doubled, from $2.4B to $5.4B (2020–25)</strong> — a
+    <strong>17.7% CAGR</strong>, easily the fastest of the four. Its share of global revenue rose from
+    <strong>9.6% to 11.8%</strong>. This is a volume story, not a pricing one: APAC still has the lowest
+    ARM of any region, so growth is coming from new subscribers, not higher prices per user.</p></div>
+  </div>
+  <div class="takeaway">
+    <div class="rank">03</div>
+    <div><h3>EMEA is the real second engine of growth</h3>
+    <p>Europe, Middle East &amp; Africa grew from $7.8B to $14.5B, a <strong>13.3% CAGR</strong> — faster than
+    UCAN and now <strong>32.1% of total revenue</strong>, up from 31.4%. EMEA is closing in on UCAN's lead
+    while carrying a much larger subscriber base already.</p></div>
+  </div>
+  <div class="takeaway">
+    <div class="rank">04</div>
+    <div><h3>LATAM is the laggard — steady, but falling behind</h3>
+    <p>Latin America grew from $3.2B to $5.4B, an <strong>11.2% CAGR</strong>, the slowest of all four regions.
+    Its share of global revenue actually declined, from <strong>12.8% to 11.9%</strong> — LATAM is growing in
+    absolute terms but losing relevance in the overall mix as APAC and EMEA outpace it.</p></div>
+  </div>
+  <div class="takeaway">
+    <div class="rank">05</div>
+    <div><h3>The bottom line</h3>
+    <p>Global revenue grew from <strong>$24.8B to $45.2B</strong>, a <strong>12.8% five-year CAGR</strong>.
+    But that headline number hides a clear strategic shift: Netflix's growth is increasingly coming from
+    EMEA and APAC — lower-ARM, higher-volume markets — while UCAN, its highest-margin region, matures.
+    The 2.4x ARM gap between UCAN and APAC means Netflix is trading revenue-per-user for reach, betting
+    that scale in emerging markets compounds into pricing power later, the way it already has in UCAN.</p></div>
+  </div>
+`;
+</script>
+
+</body>
+</html>
